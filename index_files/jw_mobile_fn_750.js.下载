@@ -1,0 +1,429 @@
+/*
+# ----                                                                  ---- #
+|- 	    file: jw_mobile_fn.js												-|
+|- 	 version: 1.0.0															-|
+|-  requires: jquery.js(Production version:1.11.1)							-|
+|- copyright: Copyright(c) 2014-2016 Investment company of Beijing Julong	-|
+|-    action: some slide for the mobile 									-|
+# ----                                                                  ---- #
+|- 	  author: Li Jiawei														-|
+|- 		date: Sun Nov 16 2014												-|
+|-	 amended: --															-|
+# ----                                                                  ---- #
+*/
+
+$.fn.jw_slide_m = function(options){
+	
+	options = options || {};
+	options.slideH = options.slideH || 0.5;
+	options.slidebox = options.slidebox || "jw_slide_box";
+	options.turnwrap = options.turnwrap || "jw_turn_wrap";
+	options.showlist = options.showlist || "jw_show_list";
+	options.direction = options.direction == "y" ? "y" : "x";
+	options.startnum = options.startnum || 1;
+	options.shownum = options.shownum || 1;
+	options.selectbtn = options.selectbtn || false;
+	options.selecttype = options.selecttype || "default";
+	options.autoturn = options.autoturn == false ? false : true;
+	options.turntime = options.turntime || 6000;
+	options.delay = options.delay || 3000;
+		
+	this.$size = $(this).find("." + options.turnwrap).find("." + options.showlist).size();
+	this.$num = options.startnum - 1;
+		
+	this.$addHtml = $(this).find("." + options.showlist).clone(true);
+	$(this).find("." + options.turnwrap).append(this.$addHtml.clone(true));
+	$(this).find("." + options.turnwrap).append(this.$addHtml);	
+	
+	$(this).find("." + options.slidebox).css({"overflow": "hidden"});
+	$(this).find("." + options.turnwrap).css({"position": "absolute"});
+	$(this).find("." + options.showlist).css({"float": "left"});
+	
+	if(options.selectbtn != false){
+		
+		if(options.selectbtn == true){
+			
+			this.selectBtnBox = "jw_select_btn_box";
+			this.selectBtnList = "jw_select_btn_list";
+			
+			this.selectBtnHtml = '<div class="'+ this.selectBtnBox +'">';
+			for($i=0; $i<this.$size; $i++){
+				
+				this.selectBtnHtml += '<div class="'+ this.selectBtnList +'"><span>'+ options.selecttype == "num" ? ($i+1) : "" +'</span><div>';
+			}
+			this.selectBtnHtml += '</div>';
+			
+			$(this).append(this.selectBtnHtml);
+		}
+		else{
+			
+			this.selectBtnBox = options.selectbtn;
+			this.selectBtnList = options.selectbtn + "_list";
+		}
+	}
+	if(options.selectbtn != false){
+		
+		$(this).find("." + this.selectBtnBox).find("." + this.selectBtnList).eq(this.$num).addClass("select");
+	}
+	
+	
+	$slideFn = function($object){
+		
+		$object.$resizeFn = function($obj){
+			
+			$obj.$w = $($obj).width();
+			if(typeof options.slideH == "string"){
+				$obj.$h = options.slideH;
+			}
+			else{
+				$obj.$h = $obj.$w * options.slideH;
+			}
+			$($obj).css({"height": $obj.$h});
+			
+			$obj.$w = $($obj).find("." + options.slidebox).width();
+			$obj.$h = $($obj).find("." + options.slidebox).height();
+			
+			//无视图片不足
+			$obj.$offset = $obj.$size + $obj.$num;
+			
+			if(options.direction == "y"){
+				
+				$($obj).find("." + options.turnwrap).css({"width": $obj.$w, "height": ($obj.$h * $obj.$size * 3)/options.shownum, "left": 0, "top": -$obj.$offset * 100 / options.shownum + "%"});
+				$($obj).find("." + options.showlist).css({"width": $obj.$w, "height": $obj.$h/options.shownum});
+			}
+			else if(options.direction == "x"){
+				
+				$($obj).find("." + options.turnwrap).css({"width": ($obj.$w * $obj.$size * 3)/options.shownum, "height": $obj.$h, "top": 0, "left": -$obj.$offset * 100 / options.shownum + "%"});
+				$($obj).find("." + options.showlist).css({"width": $obj.$w/options.shownum, "height": $obj.$h});
+			}
+		}
+		
+		$object.$resize = function($obj){
+			
+			$object.$resizeFn($obj);
+			$(window).resize(function(){
+				$object.$resizeFn($obj);
+			})
+		}
+
+		$object.$events = function($obj){
+		
+			$($obj).find("." + options.slidebox).bind("touchstart", function(e){
+				
+				e.stopPropagation();
+				$obj.$start($obj, e);
+				clearTimeout($obj.stDelay);
+			})
+			$($obj).find("." + options.slidebox).bind("touchmove", function(e){
+				
+				e.stopPropagation();
+				$obj.$move($obj, e);
+			})
+			$($obj).find("." + options.slidebox).bind("touchend", function(e){
+				
+				e.stopPropagation();
+				$obj.$end($obj, e);
+				$obj.$autoTurn($obj);
+			})
+		}
+	
+		$object.$start = function($obj, e){
+			
+			$($obj).find("." + options.turnwrap).stop();
+			
+			$obj.$startY = e.originalEvent.touches[0].pageY;
+			$obj.$offsetY = $($obj).find("." + options.turnwrap).offset().top;
+			$obj.$startX = e.originalEvent.touches[0].pageX;
+			$obj.$offsetX = $($obj).find("." + options.turnwrap).offset().left;
+			
+			$obj.lock = 0;
+		}
+		
+		$object.$move = function($obj, e){
+																			
+			$obj.$moveX = e.originalEvent.touches[0].pageX - $obj.$startX;
+			$obj.$moveY = e.originalEvent.touches[0].pageY - $obj.$startY;
+			
+			if($obj.lock == 0 && ((Math.abs($obj.$moveX) > Math.abs($obj.$moveY) && options.direction == "x") || (Math.abs($obj.$moveX) <= Math.abs($obj.$moveY) && options.direction == "y"))){
+				
+				e.preventDefault();
+				$obj.lock = 1;
+			}
+			else{
+				if(options.direction == "y"){
+					$($obj).find("." + options.turnwrap).css({"top": $obj.$offsetY + $obj.$moveY});
+				}
+				else if(options.direction == "x"){
+					$($obj).find("." + options.turnwrap).css({"left": $obj.$offsetX + $obj.$moveX});
+				}
+			}
+		}
+		
+		$object.$end = function($obj, e){
+			
+			if(options.direction == "y" && $obj.lock != 0){
+				
+				if($obj.$moveY > 60){
+				
+					$obj.$offset = -Math.ceil(($obj.$offsetY + $obj.$moveY) / ($obj.$h / options.shownum));
+				}
+				else if($obj.$moveY < -60){
+					
+					$obj.$offset = -Math.floor(($obj.$offsetY + $obj.$moveY) / ($obj.$h / options.shownum));
+				}
+				$obj.$num = $obj.$offset - $obj.$size;
+				
+				$($obj).find("." + options.turnwrap).animate({"top": -$obj.$h * $obj.$offset / options.shownum}, 200, function(){
+				
+					$obj.$setOffset($obj);
+				});
+			}
+		
+			if(options.direction == "x" && $obj.lock != 0){
+				
+				if($obj.$moveX > 60){
+				
+					$obj.$offset = -Math.ceil(($obj.$offsetX + $obj.$moveX) / ($obj.$w / options.shownum));
+				}
+				else if($obj.$moveX < -60){
+					
+					$obj.$offset = -Math.floor(($obj.$offsetX + $obj.$moveX) / ($obj.$w / options.shownum));
+				}
+				$obj.$num = $obj.$offset - $obj.$size;
+				
+				$($obj).find("." + options.turnwrap).animate({"left": -$obj.$w * $obj.$offset / options.shownum}, 200, function(){
+				
+					$obj.$setOffset($obj);
+				});
+				
+			}
+			
+		}
+		
+		$object.$setOffset = function($obj){
+			
+			if($obj.$num < 0 || $obj.$num >= $obj.$size){
+				
+				$obj.$num = $obj.$size - Math.abs($obj.$num);
+				if(options.direction == "y"){
+					
+					$($obj).find("." + options.turnwrap).css("top", -$obj.$h * ($obj.$size + $obj.$num) / options.shownum);
+				}
+				else if(options.direction == "x"){
+					
+					$($obj).find("." + options.turnwrap).css("left", -$obj.$w * ($obj.$size + $obj.$num) / options.shownum);
+				}
+			}
+			
+			if(options.selectbtn != false){
+				
+				$($obj).find("." + $obj.selectBtnBox).find("." + $obj.selectBtnList).removeClass("select");
+				$($obj).find("." + $obj.selectBtnBox).find("." + $obj.selectBtnList).eq($obj.$num).addClass("select");
+			}
+		}
+		
+		$object.$autoTurnFn = function($obj){
+			
+			$obj.$num ++;
+			if(options.direction == "y"){
+				
+				$($obj).find("." + options.turnwrap).stop().animate({"top": -$obj.$h * ($obj.$num + $obj.$size) / options.shownum}, 200, function(){
+				
+					$obj.$setOffset($obj);
+				});
+			}
+			else if(options.direction == "x"){
+				
+				$($obj).find("." + options.turnwrap).stop().animate({"left": -$obj.$w * ($obj.$num + $obj.$size) / options.shownum}, 200, function(){
+				
+					$obj.$setOffset($obj);
+				});
+			}
+			
+			$obj.$autoTurn($obj);
+		}
+		
+		$object.$autoTurn = function($obj){
+			$obj.stDelay = setTimeout(function(){
+				
+				$obj.$autoTurnFn($obj);
+			}, options.turntime);
+		}
+		
+		$object.$resize($object);
+		$object.$events($object);
+		$object.$autoTurn($object);
+	}
+	$slideFn(this);
+}
+
+
+//get more list
+var $inListNum = 1;
+function getMoreList($type, $groupNum, $temp, $btn, $listBox){
+	
+	$($btn).unbind("click");
+	$($btn +" > span").hide();
+	$($btn +" > .list_more_loading_btn").show();
+	
+	var $temp_html = "";
+	var $tags = $temp.match(/\[\-\#[\w]*\#\-\]/g);
+	
+	$.ajax({
+		url: "/jL_app/loadArc/"+ $type +"/" + $groupNum + ".txt",
+		dataType:"json",
+		success: function($data){
+			
+			if($groupNum == $data["num"]){
+				
+				for($i=0; $i<$data["pic"].length; $i++){
+					
+					//list
+					if($type == "list"){
+						
+						if($data["id"][$i] == 6){
+							$temp = '<li><a href="[-#url#-]"><img class="list_pic" src="[-#pic#-]"><div class="list_text"><div class="list_title">[-#title#-]</div><div class="list_infos gray">[-#infos#-]</div></div><div class="list_type_sign blue">独家</div></a></li>';
+						}
+						else if($data["id"][$i] == 9){
+							$temp = '<li><a href="[-#url#-]"><img class="list_pic" src="[-#pic#-]"><div class="list_text"><div class="list_title">[-#title#-]</div><div class="list_infos gray">[-#infos#-]</div></div><div class="list_type_sign red">专题</div></a></li>';
+						}
+						
+						if(($groupNum != 0 && $i == 0) || $i == 4){
+							
+							$temp_html += '<li><div class="inList_slide inList_slide_'+ $groupNum + "_" + $i +'"><div class="jw_slide_box"><div class="jw_turn_wrap"><a class="jw_show_list"href="/wap/technology/"><img src="/uploads/hd/inlist_banner_1.gif"/></a><a class="jw_show_list"href="/wap/technology/"><img src="/uploads/hd/inlist_banner_2.gif"/></a><a class="jw_show_list"href="/wap/hd/"><img src="/uploads/hd/inlist_banner_3.jpg"/></a><a class="jw_show_list"href="/wap/hd/hd_dy.html"><img src="/uploads/hd/inlist_banner_5.jpg"/></a><a class="jw_show_list"href="/wap/brand_story/"><img src="/uploads/hd/inlist_banner_4.jpg"/></a></div></div><div class="common_select_btns"><div class="common_select_btns_wrap"><div class="common_select_btns_list"></div><div class="common_select_btns_list"></div><div class="common_select_btns_list"></div><div class="common_select_btns_list"></div><div class="common_select_btns_list"></div></div></div></div><script>$(".inList_slide_'+ $groupNum + "_" + $i +'").jw_slide_m({slideH:0.339655,startnum:'+ $inListNum +',selectbtn:"common_select_btns"});$common_select_btns_w = $(".inList_slide_'+ $groupNum + "_" + $i +' > .common_select_btns").width();$(".inList_slide_'+ $groupNum + "_" + $i +' > .common_select_btns").css("margin-left", -$common_select_btns_w / 2);</script></li>';
+							
+							if($inListNum == 5){
+								$inListNum = 1;
+							}
+							else{
+								$inListNum ++;
+							}
+						}
+					}
+					for($j=0, $html_cache=$temp; $j<$tags.length; $j++){
+						
+						$field = $tags[$j].replace(/\[\-\#/, "").replace(/\#\-\]/, "");
+						$html_cache = $html_cache.replace($tags[$j], $data[$field][$i]);
+					}
+					$temp_html += $html_cache;
+				}
+				
+				$tags = "qq,tel,area";
+				$temp_html = rpAreaStr($tags, $temp_html);
+				
+				$($listBox).append($temp_html);
+			}
+			
+			$groupNum ++;
+			
+			if($groupNum == $data["page_size"]){
+				
+				$($btn +" > span").hide();
+				$($btn +" > .list_more_end_show").show();
+				
+				$($btn).unbind("click");
+			}
+			else{
+				
+				$($btn +" > span").hide();
+				$($btn +" > .list_more_deff_btn").show();
+				
+				$($btn).bind("click", function(){
+					
+					getMoreList($type, $groupNum, $temp, $btn, $listBox);
+				})
+			}
+		}
+	})
+}
+
+function rpAreaStr($tags, $cacheHtml){
+	
+	$tagsArr = $tags.replace(" ", "").split(",");
+	
+	for($i in $tagsArr){
+			
+		$exp = eval("/\\[\\-\\#"+ $tagsArr[$i] +"\\#\\-\\]/ig");
+		
+		if($jL_db.areaStr == undefined && $tagsArr[$i] == "area"){
+			
+			$cacheHtml = $cacheHtml.replace($exp, "");
+		}
+		else{
+			$cacheHtml = $cacheHtml.replace($exp, eval("$jL_db." + $tagsArr[$i]));
+		}
+	}
+	
+	return $cacheHtml;
+}
+
+$.fn.jL_areaStr = function($tags){
+	
+	$cacheHtml = $(this).html();
+	$cacheHtml = rpAreaStr($tags, $cacheHtml);
+	
+	$(this).html($cacheHtml);
+}
+  // ****************************************************** //
+ // ******************* play font-size ******************* //
+// ****************************************************** //
+$.fn.play_font=function(option) {
+
+	option = option || {};
+	option.body_width = $(window).width() < 320 ? 320 : $(window).width() && $(window).width() > 750 ? 750 : $(window).width();
+	option.fl_size = 0;
+	$("html").attr("style","-moz-text-size-adjust:none;-ms-text-size-adjust:none;-webkit-text-size-adjust:none;");
+
+	// play_width = function() {
+	// 	var font_num =  Math.floor(((option.body_width/10)-32)/2.5);
+	// 	return font_num;
+	// }
+
+	Get_FLsize = function(size) {
+		size = size.split("_");
+		option.fl_size = Math.round((option.body_width/750)*parseInt(size[1]));
+		return option.fl_size;
+	}
+
+	// Get_LineHeight = function(size) {
+	// 	size = Get_FontSize(size)-size+parseInt(size);
+	// 	return size;
+	// }
+	// Get_LineHeight = function(size) {
+	// 	size = size.split("_");
+	// 	option.fs_line = Math.round((option.body_width/640)*(parseInt(size[1])*2));
+	// 	return option.fs_line;
+	// }
+
+	Get_FLClass = function(value) {
+		var reg_arr = [/FontSize_[0-9]*/gi,/LineHeight_[0-9]*/gi];
+		var match_strs = $("body").html().match(reg_arr[value]) ? $("body").html().match(reg_arr[value]) : "none";
+		if(match_strs != "none") {
+			var match_strarr = [],hash = {};
+			for (var i = 0, elem; (elem = match_strs[i]) != null; i++) {
+				if (!hash[elem]) {
+					match_strarr.push(elem);
+					hash[elem] = true;
+				}
+			}
+		}
+		return match_strarr;
+	}
+
+	play_for_fontline = function(value) {
+		var font_arr = Get_FLClass(0);
+		var line_arr = Get_FLClass(1);
+		if(font_arr != "none" && font_arr != undefined) {
+			for(var i=0;i<font_arr.length;i++) {
+				$("."+font_arr[i]).css("font-size",Get_FLsize(font_arr[i])+"px");
+			}
+		}
+		if(line_arr != "none" && line_arr != undefined) {
+			for(var i=0;i<line_arr.length;i++) {
+				$("."+line_arr[i]).css("line-height",Get_FLsize(line_arr[i])+"px");
+			}
+		}
+	}
+
+	play_for_fontline();
+}
